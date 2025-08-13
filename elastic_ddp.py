@@ -39,7 +39,3 @@ def demo_basic():
 
 if __name__ == "__main__":
     demo_basic()
-
-
-
-print("this is a test")
