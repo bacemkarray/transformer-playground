@@ -30,3 +30,17 @@ def load_base(model_name: str, dtype: str = "bfloat16", device_map: str = "auto"
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     return model, tok
+
+
+def attach_adapter(model, adapter_path: Optional[str]):
+    if not adapter_path:
+        return model
+    # Load LoRA/QLoRA adapter
+    model = PeftModel.from_pretrained(model, adapter_path)
+    # Merge for faster inference and to avoid PEFT dependency at gen time
+    try:
+        model = model.merge_and_unload()
+    except Exception:
+        # Some PEFT configs may not support merge; fall back to non-merged
+        pass
+    return model
