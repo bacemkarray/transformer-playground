@@ -9,7 +9,7 @@ from peft import PeftModel
 RUNS = Path("runs")
 DATA = Path("data/eval.jsonl")
 
-# Decoding params — keep these fixed across all runs for apples-to-apples
+# fixed params
 GEN_KW = {
     "max_new_tokens": 64,
     "do_sample": False,
@@ -20,7 +20,13 @@ GEN_KW = {
 
 
 def load_base(model_name: str, dtype: str = "bfloat16", device_map: str = "auto"):
-    torch_dtype = dict(float16=torch.float16, bfloat16=torch.bfloat16, float32=torch.float32)[dtype]
+    dtype_dict = {
+    "float16":  torch.float16,
+    "bfloat16": torch.bfloat16,
+    "float32":  torch.float32
+    }
+    torch_dtype = dtype_dict[dtype]
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch_dtype,
@@ -70,7 +76,7 @@ def main():
     pred_csv   = out_dir / "predictions.csv"
 
     model, tok = load_base(model_name, dtype=dtype, device_map=device_map)
-    # model = attach_adapter(model, adapter)
+    model = attach_adapter(model, adapter)
     model.eval()
 
     # Determinism
