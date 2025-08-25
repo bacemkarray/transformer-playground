@@ -5,9 +5,12 @@ from pathlib import Path
 OUT = Path("data")
 OUT.mkdir(parents=True, exist_ok=True)
 
-# Choose how big the eval set is:
-N_SAMPLES = int(os.environ.get("N_SAMPLES", "500"))  # set to 11333 for full val
-SEED = int(os.environ.get("SEED", "42"))
+# Sizes (override if you want)
+TRAIN_N = int(os.environ.get("TRAIN_N", "1000"))
+VAL_N   = int(os.environ.get("VAL_N", "200"))
+EVAL_N  = int(os.environ.get("EVAL_N", "500"))
+SEED    = int(os.environ.get("SEED", "42"))
+
 
 
 PROMPT_TEMPLATE = (
@@ -15,28 +18,46 @@ PROMPT_TEMPLATE = (
     "concise sentence capturing the main point.\n\nArticle:\n{document}\n\nSummary:"
 )
 
-def main():
-    ds = load_dataset("EdinburghNLP/xsum", split="validation", trust_remote_code=True)
-    ids = list(range(len(ds)))
-    random.Random(SEED).shuffle(ids)
-    ids = ids[:N_SAMPLES]
 
-    out_path = OUT / "eval.jsonl"
+def prepare_subset(split_name, ds, n, out_path, seed):
+    ids = list(range(len(ds)))
+    rng = random.Random(seed)
+    rng.shuffle(ids)
+    ids = ids[:n]
+
     with out_path.open("w", encoding="utf-8") as f:
-        for i in ids:
-            ex = ds[i]
+        for idx in ids:
+            ex = ds[idx]
             article = ex["document"].strip()
             reference = ex["summary"].strip()
             prompt = PROMPT_TEMPLATE.format(document=article)
             rec = {
-                "id": str(i),
+                "id": f"{split_name}-{idx}",
                 "document": article,
                 "reference": reference,
                 "prompt": prompt,
             }
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {N_SAMPLES} examples to {out_path}")
+
+
+def main():
+    # XSum provides dedicated splits
+    train_ds = load_dataset("EdinburghNLP/xsum", split="train", trust_remote_code=True)
+    val_ds = load_dataset("EdinburghNLP/xsum", split="validation", trust_remote_code=True)
+    test_ds = load_dataset("EdinburghNLP/xsum", split="test", trust_remote_code=True)
+
+    # Train/Val used for fine-tuning + held-out validation
+    prepare_subset("train", train_ds, TRAIN_N, OUT / "train.jsonl", SEED)
+    prepare_subset("val",   val_ds,   VAL_N,   OUT / "val.jsonl",   SEED)
+
+    # Eval used for zero-shot baseline generation (kept separate)
+    prepare_subset("eval",  test_ds,  EVAL_N,  OUT / "eval.jsonl",  SEED)
+
+
+    print(f"Wrote {TRAIN_N} → {OUT/'train.jsonl'}")
+    print(f"Wrote {VAL_N}   → {OUT/'val.jsonl'}")
+    print(f"Wrote {EVAL_N}  → {OUT/'eval.jsonl'}")
 
 if __name__ == "__main__":
     main()
