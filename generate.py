@@ -12,10 +12,10 @@ DATA = Path("data/eval.jsonl")
 # fixed params
 GEN_KW = {
     "max_new_tokens": 64,
-    "do_sample": False,
-    "temperature": 0.0,
-    "top_p": 1.0,
-    "no_repeat_ngram_size": 3,
+    # "do_sample": False,
+    # "temperature": 0.0,
+    # "top_p": 1.0,
+    # "no_repeat_ngram_size": 3,
 }
 
 
@@ -55,25 +55,25 @@ def attach_adapter(model, adapter_path: Optional[str]):
 def main():
     """
     Required env vars:
-      MODEL_NAME      - base or fine-tuned base (e.g., "mistralai/Mistral-7B-Instruct-v0.3")
-      RUN_NAME        - a short tag for this generation run (e.g., base, lora, qlora)
+      MODEL_NAME - base or fine-tuned base (e.g., "mistralai/Mistral-7B-Instruct-v0.3")
+      RUN_NAME - a short tag for this generation run (e.g., base, lora, qlora)
     Optional:
-      ADAPTER_PATH    - path to a PEFT adapter dir (LoRA/QLoRA)
-      DTYPE           - float16 | bfloat16 | float32 (default bfloat16)
-      DEVICE_MAP      - e.g., "auto"
-      LIMIT           - cap examples for quick smoke tests
+      ADAPTER_PATH - path to a PEFT adapter dir (LoRA/QLoRA)
+      DTYPE - float16 | bfloat16 | float32 (default bfloat16)
+      DEVICE_MAP - e.g., "auto"
+      LIMIT - cap examples for quick smoke tests
     """
     model_name = os.environ["MODEL_NAME"]
-    run_name   = os.environ["RUN_NAME"]
-    adapter    = os.environ.get("ADAPTER_PATH")
-    dtype      = os.environ.get("DTYPE", "bfloat16")
+    run_name = os.environ["RUN_NAME"]
+    adapter = os.environ.get("ADAPTER_PATH")
+    dtype = os.environ.get("DTYPE", "bfloat16")
     device_map = os.environ.get("DEVICE_MAP", "auto")
-    limit      = int(os.environ.get("LIMIT", "0"))
+    limit = int(os.environ.get("LIMIT", "0"))
 
     out_dir = RUNS / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
     pred_jsonl = out_dir / "predictions.jsonl"
-    pred_csv   = out_dir / "predictions.csv"
+    pred_csv = out_dir / "predictions.csv"
 
     model, tok = load_base(model_name, dtype=dtype, device_map=device_map)
     model = attach_adapter(model, adapter)
@@ -112,15 +112,7 @@ def main():
             if limit and n >= limit:
                 break
 
-    # Also write a CSV for eyeballing
-    import csv
-    with open(pred_jsonl, "r", encoding="utf-8") as f, open(pred_csv, "w", newline="", encoding="utf-8") as g:
-        w = csv.writer(g)
-        w.writerow(["id", "prediction", "reference"])
-        for line in f:
-            r = json.loads(line)
-            w.writerow([r["id"], r["prediction"], r["reference"]])
-
+    # METADATA
     dur = time.time() - t0
     with open(out_dir / "gen_meta.json", "w", encoding="utf-8") as g:
         json.dump({
@@ -134,6 +126,9 @@ def main():
         }, g, indent=2)
 
     print(f"Wrote {n} preds to {pred_jsonl} in {dur:.1f}s")
+    
 
 if __name__ == "__main__":
     main()
+
+    
