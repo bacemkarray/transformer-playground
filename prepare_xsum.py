@@ -47,11 +47,8 @@ def main():
     val_ds = load_dataset("EdinburghNLP/xsum", split="validation", trust_remote_code=True)
     test_ds = load_dataset("EdinburghNLP/xsum", split="test", trust_remote_code=True)
 
-    # Train/Val used for fine-tuning + held-out validation
     prepare_subset("train", train_ds, TRAIN_N, OUT / "train.jsonl", SEED)
     prepare_subset("val",   val_ds,   VAL_N,   OUT / "val.jsonl",   SEED)
-
-    # Eval used for zero-shot baseline generation (kept separate)
     prepare_subset("eval",  test_ds,  EVAL_N,  OUT / "eval.jsonl",  SEED)
 
 
