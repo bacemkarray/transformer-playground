@@ -6,9 +6,9 @@ OUT = Path("data")
 OUT.mkdir(parents=True, exist_ok=True)
 
 # Sizes (override if you want)
-TRAIN_N = int(os.environ.get("TRAIN_N", "1000"))
-VAL_N   = int(os.environ.get("VAL_N", "200"))
-EVAL_N  = int(os.environ.get("EVAL_N", "500"))
+TRAIN_N = int(os.environ.get("TRAIN_N", "50000"))
+VAL_N   = int(os.environ.get("VAL_N", "2000"))
+EVAL_N  = int(os.environ.get("EVAL_N", "11334"))
 SEED    = int(os.environ.get("SEED", "42"))
 
 
@@ -55,9 +55,9 @@ def main():
     prepare_subset("eval",  test_ds,  EVAL_N,  OUT / "eval.jsonl",  SEED)
 
 
-    print(f"Wrote {TRAIN_N} → {OUT/'train.jsonl'}")
-    print(f"Wrote {VAL_N}   → {OUT/'val.jsonl'}")
-    print(f"Wrote {EVAL_N}  → {OUT/'eval.jsonl'}")
+    print(f"Wrote {TRAIN_N} -> {OUT/'train.jsonl'}")
+    print(f"Wrote {VAL_N}   -> {OUT/'val.jsonl'}")
+    print(f"Wrote {EVAL_N}  -> {OUT/'eval.jsonl'}")
 
 if __name__ == "__main__":
     main()
