@@ -1,7 +1,7 @@
 import os, json, time
 from pathlib import Path
 from typing import Optional
-
+from tqdm import tqdm
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
@@ -86,8 +86,13 @@ def main():
     n = 0
     with open(DATA, "r", encoding="utf-8") as f, \
          open(pred_jsonl, "w", encoding="utf-8") as fout:
+        
+        # find list length for tqdm progress bar
+        lines = f.readlines()
+        if limit:
+            lines = lines[:limit]
 
-        for line in f:
+        for line in tqdm(lines, desc="Inference Progress", unit="ex"):
             rec = json.loads(line)
             prompt = rec["prompt"]
             inputs = tok(prompt, return_tensors="pt", truncation=True,
