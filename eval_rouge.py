@@ -35,14 +35,12 @@ def main():
 
     rouge = evaluate.load("rouge")
     scores = rouge.compute(predictions=preds, references=refs, use_stemmer=True)
-
-    # Keep ROUGE-L (F1) as the headline metric
     result = {"Rouge-L": float(f"{scores['rougeL']:.4f}")}
 
     # Write the rouge metrics
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
-    print(f"Wrote ROUGE metrics to {out_path}: {result}")
+    print(f"Wrote ROUGE metric to {out_path}: {result}")
 
 
 if __name__ == "__main__":
