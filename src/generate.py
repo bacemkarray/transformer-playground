@@ -139,7 +139,7 @@ def main():
             "num_examples": n if not limit else min(n, limit),
         }, g, indent=2)
 
-    print(f"Wrote {n} preds to {pred_jsonl} in {dur:.1f}s")
+    print(f"Wrote {n} preds to {pred_jsonl} in {dur:.1f}m")
     
 
 if __name__ == "__main__":
