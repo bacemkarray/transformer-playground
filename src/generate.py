@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 RUNS = Path("runs")
-DATA = Path("data/eval.jsonl")
+DATA = Path("data/test.jsonl")
 
 # fixed params
 GEN_KW = {
@@ -93,8 +93,14 @@ def main():
         for line in tqdm(lines, desc="Inference Progress", unit="ex"):
             rec = json.loads(line)
             prompt = rec["prompt"]
+
+            # Max context window for Mistral is 8192
+            ctx = model.config.max_position_embeddings # 8192
+            gen_max = GEN_KW.get("max_new_tokens", 64)
+            encode_len = ctx - gen_max # 8128
+
             inputs = tok(prompt, return_tensors="pt", truncation=True,
-                         max_length=tok.model_max_length).to(model.device)
+                         max_length=encode_len).to(model.device)
 
             with torch.no_grad():
                 out = model.generate(**inputs, **GEN_KW)
