@@ -68,7 +68,7 @@ def main():
     adapter = os.environ.get("ADAPTER_PATH")
     dtype = os.environ.get("DTYPE", "bfloat16")
     device_map = os.environ.get("DEVICE_MAP", "auto")
-    limit = int(os.environ.get("LIMIT", "0"))
+    limit = int(os.environ.get("LIMIT", "11334"))
 
     out_dir = RUNS / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -126,7 +126,7 @@ def main():
             "dtype": dtype,
             "device_map": device_map,
             "gen_kwargs": GEN_KW,
-            "seconds": dur,
+            "minutes": dur/60,
             "num_examples": n if not limit else min(n, limit),
         }, g, indent=2)
 
@@ -135,5 +135,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    
