@@ -49,12 +49,12 @@ def main():
 
     prepare_subset("train", train_ds, TRAIN_N, OUT / "train.jsonl", SEED)
     prepare_subset("val",   val_ds,   VAL_N,   OUT / "val.jsonl",   SEED)
-    prepare_subset("eval",  test_ds,  EVAL_N,  OUT / "eval.jsonl",  SEED)
+    prepare_subset("test",  test_ds,  EVAL_N,  OUT / "test.jsonl",  SEED)
 
 
     print(f"Wrote {TRAIN_N} -> {OUT/'train.jsonl'}")
     print(f"Wrote {VAL_N}   -> {OUT/'val.jsonl'}")
-    print(f"Wrote {EVAL_N}  -> {OUT/'eval.jsonl'}")
+    print(f"Wrote {TEST_N}  -> {OUT/'test.jsonl'}")
 
 if __name__ == "__main__":
     main()
