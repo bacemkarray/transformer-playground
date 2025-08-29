@@ -8,7 +8,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # Sizes (override if you want)
 TRAIN_N = int(os.environ.get("TRAIN_N", "50000"))
 VAL_N   = int(os.environ.get("VAL_N", "2000"))
-EVAL_N  = int(os.environ.get("EVAL_N", "11334"))
+TEST_N  = int(os.environ.get("EVAL_N", "11334"))
 SEED    = int(os.environ.get("SEED", "42"))
 
 
@@ -49,7 +49,7 @@ def main():
 
     prepare_subset("train", train_ds, TRAIN_N, OUT / "train.jsonl", SEED)
     prepare_subset("val",   val_ds,   VAL_N,   OUT / "val.jsonl",   SEED)
-    prepare_subset("test",  test_ds,  EVAL_N,  OUT / "test.jsonl",  SEED)
+    prepare_subset("test",  test_ds,  TEST_N,  OUT / "test.jsonl",  SEED)
 
 
     print(f"Wrote {TRAIN_N} -> {OUT/'train.jsonl'}")
