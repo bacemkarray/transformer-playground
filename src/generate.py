@@ -76,6 +76,12 @@ def main():
     model = attach_adapter(model, adapter)
     model.eval()
 
+    # Update GEN_KW to include tokenizer IDs
+    GEN_KW.update({
+    "pad_token_id": tok.eos_token_id,
+    "eos_token_id": tok.eos_token_id,  # Mistral’s eos is 2
+    })
+
     # Determinism
     torch.manual_seed(0)
 
