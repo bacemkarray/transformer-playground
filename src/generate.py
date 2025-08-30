@@ -71,7 +71,6 @@ def main():
     out_dir = RUNS / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
     pred_jsonl = out_dir / "predictions.jsonl"
-    pred_csv = out_dir / "predictions.csv"
 
     model, tok = load_base(model_name, dtype=dtype, device_map=device_map)
     model = attach_adapter(model, adapter)
@@ -122,7 +121,7 @@ def main():
                 break
 
     # METADATA
-    dur = time.time() - t0
+    dur = (time.time() - t0)/60
     with open(out_dir / "gen_meta.json", "w", encoding="utf-8") as g:
         json.dump({
             "model_name": model_name,
@@ -130,7 +129,7 @@ def main():
             "dtype": dtype,
             "device_map": device_map,
             "gen_kwargs": GEN_KW,
-            "minutes": dur/60,
+            "minutes": dur,
             "num_examples": n if not limit else min(n, limit),
         }, g, indent=2)
 
