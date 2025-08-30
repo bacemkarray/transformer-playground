@@ -1,4 +1,4 @@
-import argparse, json, sys
+import json, os, sys
 from pathlib import Path
 
 import evaluate
@@ -16,13 +16,8 @@ def read_jsonl(path: Path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Compute ROUGE on predictions JSONL.")
-    ap.add_argument("--pred", required=True, help="Path to predictions JSONL with fields: id, prediction, reference")
-    ap.add_argument("--out", required=True, help="Where to write metrics JSON")
-    args = ap.parse_args()
-
-    pred_path = Path(args.pred)
-    out_path = Path(args.out)
+    pred_path = Path(os.environ["PRED"]) # Where to ingest the data from
+    out_path = Path(os.environ["OUT"]) # Where to write the rouge score
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     rows = read_jsonl(pred_path)
