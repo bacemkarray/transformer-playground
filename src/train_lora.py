@@ -1,6 +1,17 @@
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, Trainer, TrainingArguments, BitsAndBytesConfig
 from peft import LoraModel, LoraConfig, TaskType, prepare_model_for_kbit_training, get_peft_model
 import torch
+from datasets import load_dataset
+import os, json
+from pathlib import Path
+
+
+out = Path("adapters") / os.environ["out"]
+model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
+use_qlora = os.environ.get("use_qlora", False) # Leave False for 16/ bf16 LoRA
+max_len = os.environ.get("max_len", 8128) 
+gen_max_new = os.environ.get("gen_max_new", 64) # maximum new tokens the LLM can generate 
+device_map = os.environ.get("DEVICE_MAP", "auto")
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -19,7 +30,92 @@ bnb_config = BitsAndBytesConfig(
 )
 
 
+tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
 
-# model = prepare_model_for_kbit_training(model)
-model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
+if use_qlora:
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        quantization_config=bnb_config, 
+        device_map="auto",
+    )
+    model = prepare_model_for_kbit_training(model)
+else:
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+
+
+model.config.use_cache = False
+model.enable_input_require_grads()
 model = get_peft_model(model, peft_config) #creates a peft model
+
+
+train_path = os.environ.get("train_path", "data/train.jsonl")
+val_path   = os.environ.get("val_path",   "data/val.jsonl")
+
+def load_jsonl(path: str):
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                yield json.loads(line)
+    
+    return load_dataset("json", data_files={"data": path})["data"]
+
+train_raw = load_jsonl(train_path)
+val_raw   = load_jsonl(val_path)
+
+def format_example(ex):
+    # Supervised fine-tuning as causal LM: prompt + target + eos
+    full = ex["prompt"] + " " + ex["reference"] + tokenizer.eos_token
+    return full
+
+def tokenize_fn(ex):
+    text = format_example(ex)
+    out = tokenizer(
+        text,
+        max_length=max_len,
+        truncation=True,
+        padding=False,   # pack later via collator
+    )
+    # Labels are input_ids (standard causal LM)
+    out["labels"] = out["input_ids"].copy()
+    return out
+
+train_ds = train_raw.map(tokenize_fn, remove_columns=train_raw.column_names)
+val_ds = val_raw.map(tokenize_fn, remove_columns=val_raw.column_names)
+
+# Dynamic padding & label shifting handled by the collator
+collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
+# Training args
+args = TrainingArguments(
+    output_dir=out,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
+    gradient_accumulation_steps=8, # Accumulate 8 mini-batches of 4 to simulate size of 32
+    num_train_epochs=2,
+    learning_rate=2e-4,
+    lr_scheduler_type="cosine",
+    logging_steps=200,
+    bf16=torch.cuda.is_available(),
+    gradient_checkpointing=True,
+    report_to="mlflow",
+)
+
+trainer = Trainer(
+    model=model,
+    args=args,
+    train_dataset=train_ds,
+    eval_dataset=val_ds,
+    data_collator=collator,
+    tokenizer=tokenizer,
+)
+
+trainer.train()
+
+# Save the LoRA/QLoRA adapter only
+trainer.save_model()  # saves PEFT adapter in output_dir
