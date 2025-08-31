@@ -36,7 +36,7 @@ if use_qlora:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config, 
-        device_map={"":0},
+        device_map="auto",
     )
     model = prepare_model_for_kbit_training(model)
 else:
@@ -53,7 +53,7 @@ model = get_peft_model(model, peft_config) #creates a peft model
 
 
 train_path = os.environ.get("train_path", "data/train.jsonl")
-val_path   = os.environ.get("val_path",   "data/val.jsonl")
+val_path = os.environ.get("val_path",   "data/val.jsonl")
 
 def load_jsonl(path: str):
     with open(path, "r", encoding="utf-8") as f:
@@ -64,7 +64,7 @@ def load_jsonl(path: str):
     return load_dataset("json", data_files={"data": path})["data"]
 
 train_raw = load_jsonl(train_path)
-val_raw   = load_jsonl(val_path)
+val_raw = load_jsonl(val_path)
 
 def format_example(ex):
     # Supervised fine-tuning as causal LM: prompt + target + eos
