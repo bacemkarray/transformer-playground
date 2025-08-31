@@ -10,7 +10,6 @@ out = Path("adapters") / os.environ["out"]
 model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
 use_qlora = os.environ.get("use_qlora", False) # Leave False for 16/ bf16 LoRA
 max_len = os.environ.get("max_len", 8128) 
-device_map = os.environ.get("DEVICE_MAP", "auto")
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -37,14 +36,14 @@ if use_qlora:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config, 
-        device_map="auto",
+        device_map={"":0},
     )
     model = prepare_model_for_kbit_training(model)
 else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
-        device_map="auto",
+        device_map={"":0},
     )
 
 
