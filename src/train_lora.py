@@ -77,7 +77,7 @@ def tokenize_fn(ex):
         text,
         max_length=max_len,
         truncation=True,
-        padding=False,   # pack later via collator
+        padding=False, # pack later via collator
     )
     # Labels are input_ids (standard causal LM)
     out["labels"] = out["input_ids"].copy()
@@ -101,7 +101,8 @@ args = TrainingArguments(
     logging_steps=200,
     bf16=torch.cuda.is_available(),
     gradient_checkpointing=True,
-    report_to="mlflow",
+    report_to="tensorboard",
+    logging_dir=str(out / "tb")
 )
 
 trainer = Trainer(
