@@ -79,8 +79,6 @@ def tokenize_fn(ex):
         truncation=True,
         padding=False, # pack later via collator
     )
-    # Labels are input_ids (standard causal LM)
-    out["labels"] = out["input_ids"].copy()
     return out
 
 train_ds = train_raw.map(tokenize_fn, remove_columns=train_raw.column_names)
