@@ -9,7 +9,7 @@ from pathlib import Path
 out = Path("adapters") / os.environ["out"]
 model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
 use_qlora = os.environ.get("use_qlora", "false") == "true" # Leave False for bf16 LoRA
-max_len = int(os.environ.get("max_len", 8128))
+max_len = int(os.environ.get("max_len", 2048))
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -93,6 +93,7 @@ args = TrainingArguments(
     per_device_train_batch_size=4,
     per_device_eval_batch_size=4,
     gradient_accumulation_steps=8, # Accumulate 8 mini-batches of 4 to simulate size of 32
+    group_by_length=True,
     num_train_epochs=2,
     learning_rate=2e-4,
     lr_scheduler_type="cosine",
