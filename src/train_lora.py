@@ -8,8 +8,8 @@ from pathlib import Path
 
 out = Path("adapters") / os.environ["out"]
 model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
-use_qlora = os.environ.get("use_qlora", False) # Leave False for 16/ bf16 LoRA
-max_len = os.environ.get("max_len", 8128) 
+use_qlora = os.environ.get("use_qlora", "false") == "true" # Leave False for bf16 LoRA
+max_len = int(os.environ.get("max_len", 8128))
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -52,19 +52,19 @@ model.enable_input_require_grads()
 model = get_peft_model(model, peft_config) #creates a peft model
 
 
-train_path = os.environ.get("train_path", "data/train.jsonl")
-val_path = os.environ.get("val_path",   "data/val.jsonl")
+train_path = Path(os.environ.get("train_path", "data/train.jsonl"))
+val_path = Path(os.environ.get("val_path", "data/val.jsonl"))
 
-def load_jsonl(path: str):
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip():
-                yield json.loads(line)
-    
-    return load_dataset("json", data_files={"data": path})["data"]
+raw = load_dataset(
+    "json",
+    data_files={
+        "train": str(train_path),
+        "validation": str(val_path),
+    },
+)
 
-train_raw = load_jsonl(train_path)
-val_raw = load_jsonl(val_path)
+train_raw = raw["train"]
+val_raw = raw["validation"]
 
 def format_example(ex):
     # Supervised fine-tuning as causal LM: prompt + target + eos
