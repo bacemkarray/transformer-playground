@@ -43,9 +43,9 @@ else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
-        device_map={"":0},
+        device_map="auto",
     )
-
+                                                                        
 
 model.config.use_cache = False
 model.enable_input_require_grads()
