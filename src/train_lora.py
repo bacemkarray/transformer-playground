@@ -10,7 +10,6 @@ out = Path("adapters") / os.environ["out"]
 model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
 use_qlora = os.environ.get("use_qlora", False) # Leave False for 16/ bf16 LoRA
 max_len = os.environ.get("max_len", 8128) 
-gen_max_new = os.environ.get("gen_max_new", 64) # maximum new tokens the LLM can generate 
 device_map = os.environ.get("DEVICE_MAP", "auto")
 
 peft_config = LoraConfig(
@@ -115,7 +114,8 @@ trainer = Trainer(
     tokenizer=tokenizer,
 )
 
+# Begin training loop
 trainer.train()
 
-# Save the LoRA/QLoRA adapter only
-trainer.save_model()  # saves PEFT adapter in output_dir
+# Save PEFT adapter only in output_dir
+trainer.save_model()
