@@ -108,8 +108,10 @@ def main():
         if limit:
             lines = lines[:limit]
 
+        num_batches = (len(lines) + batch_size - 1) // batch_size
+
         with torch.inference_mode():
-            for batch_lines in tqdm(chunks(lines, batch_size), desc="Inference (batched)", unit="batch"):
+            for batch_lines in tqdm(chunks(lines, batch_size), desc="Generating", unit="batch", total=num_batches):
                 batch = [json.loads(s) for s in batch_lines]
                 prompts = [r["prompt"] for r in batch]
 
