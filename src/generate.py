@@ -49,6 +49,10 @@ def attach_adapter(model, adapter_path: Optional[str]):
         pass
     return model
 
+def chunks(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i+n]
+
 
 def main():
     """
@@ -67,6 +71,7 @@ def main():
     dtype = os.environ.get("DTYPE", "bfloat16")
     device_map = os.environ.get("DEVICE_MAP", "auto")
     limit = int(os.environ.get("LIMIT", "11334"))
+    batch_size = int(os.environ.get("BATCH_SIZE", "8"))
 
     out_dir = RUNS / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -81,50 +86,73 @@ def main():
     "pad_token_id": tok.eos_token_id,
     "eos_token_id": tok.eos_token_id,  # Mistral’s eos is 2
     })
-
+    
+    # Max context window for Mistral is 8192
+    ctx = model.config.max_position_embeddings # 8192
+    gen_max = GEN_KW.get("max_new_tokens", 64)
+    encode_len = ctx - gen_max # 8128
+    
     # Determinism
     torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
 
     t0 = time.time()
     n = 0
     with open(DATA, "r", encoding="utf-8") as f, \
-         open(pred_jsonl, "w", encoding="utf-8") as fout:
+        open(pred_jsonl, "w", encoding="utf-8") as fout:
         
         # find list length for tqdm progress bar
         lines = f.readlines()
+        lines.sort(key=lambda s: len(json.loads(s)["prompt"])) # sort to prevent major padding during inference
         if limit:
             lines = lines[:limit]
 
-        for line in tqdm(lines, desc="Inference Progress", unit="ex"):
-            rec = json.loads(line)
-            prompt = rec["prompt"]
+        with torch.inference_mode():
+            for batch_lines in tqdm(chunks(lines, batch_size), desc="Inference (batched)", unit="batch"):
+                batch = [json.loads(s) for s in batch_lines]
+                prompts = [r["prompt"] for r in batch]
 
-            # Max context window for Mistral is 8192
-            ctx = model.config.max_position_embeddings # 8192
-            gen_max = GEN_KW.get("max_new_tokens", 64)
-            encode_len = ctx - gen_max # 8128
+                enc = tok(
+                    prompts,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=encode_len,
+                ).to(model.device)
 
-            inputs = tok(prompt, return_tensors="pt", truncation=True,
-                         max_length=encode_len).to(model.device)
+                out = model.generate(
+                    **enc,
+                    **GEN_KW,
+                    return_dict_in_generate=True,
+                )
 
-            with torch.no_grad():
-                out = model.generate(**inputs, **GEN_KW)
+                # lengths of each prompt in tokens (per row)
+                in_lens = enc["attention_mask"].sum(-1).tolist()
+                seqs = out.sequences  # (B, prompt+gen)
 
-            # Only decode newly generated tokens
-            gen_ids = out[0, inputs["input_ids"].shape[1]:]
-            pred = tok.decode(gen_ids, skip_special_tokens=True).strip()
+                preds = []
+                out_token_lens = []
+                for row, in_len in zip(seqs, in_lens):
+                    gen_ids = row[in_len:]
+                    out_token_lens.append(int(gen_ids.shape[0]))
+                    preds.append(tok.decode(gen_ids, skip_special_tokens=True).strip())
 
-            fout.write(json.dumps({
-                "id": rec["id"],
-                "reference": rec["reference"],
-                "prediction": pred,
-                "prompt_len": int(inputs["input_ids"].shape[1]),
-                "output_len": int(gen_ids.shape[0]),
-            }, ensure_ascii=False) + "\n")
+                # write this batch
+                buf = []
+                for rec, pred, in_len, out_len in zip(batch, preds, in_lens, out_token_lens):
+                    buf.append(json.dumps({
+                        "id": rec["id"],
+                        "reference": rec["reference"],
+                        "prediction": pred,
+                        "prompt_len": int(in_len),
+                        "output_len": out_len,
+                    }, ensure_ascii=False))
+                fout.write("\n".join(buf) + "\n")
 
-            n += 1
-            if limit and n >= limit:
-                break
+                n += len(batch)
+                if limit and n >= limit:
+                    break
 
     # METADATA
     dur = (time.time() - t0)/60
