@@ -36,14 +36,14 @@ if use_qlora:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config, 
-        device_map="auto",
+        device_map="none",
     )
     model = prepare_model_for_kbit_training(model)
 else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
-        device_map="auto",
+        device_map="none",
     )
                                                                         
 
