@@ -1,4 +1,4 @@
-import os, json
+import os, json, math, time
 from pathlib import Path
 
 from datasets import load_dataset
@@ -12,6 +12,7 @@ from accelerate.utils import ProjectConfiguration, set_seed
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 
@@ -69,70 +70,136 @@ def build_tokenizer_and_model():
     model.config.use_cache = False
     model.enable_input_require_grads()
     model = get_peft_model(model, peft_config) #creates a peft model
-
     return model, tokenizer
 
+def load_json_ds():
+    raw = load_dataset(
+        "json",
+        data_files={"train": str(TRAIN_PATH), "validation": str(VAL_PATH)},
+    )
+    return raw["train"], raw["validation"]
 
-raw = load_dataset(
-    "json",
-    data_files={
-        "train": str(TRAIN_PATH),
-        "validation": str(VAL_PATH),
-    },
-)
 
-train_raw = raw["train"]
-val_raw = raw["validation"]
-
-def format_example(ex):
+def format_example(ex, tokenizer):
     # Supervised fine-tuning as causal LM: prompt + target + eos
     full = ex["prompt"] + " " + ex["reference"] + tokenizer.eos_token
     return full
 
-def tokenize_fn(ex):
-    text = format_example(ex)
-    OUT_DIR = tokenizer(
-        text,
-        max_length=MAX_LEN,
-        truncation=True,
-        padding=False, # pack later via collator
+
+def make_tokenize_fn(tokenizer):
+    def _fn(ex):
+        text = format_example(ex, tokenizer)
+        out = tokenizer(
+            text,
+            max_length=MAX_LEN,
+            truncation=True,
+            padding=False, # pack later via collator
+        )
+        return out
+    return _fn
+
+
+def evaluate(model, dataloader, accelerator):
+    model.eval()
+    losses = []
+    with torch.no_grad():
+        for batch in dataloader:
+            outputs = model(**batch)
+            loss = outputs.loss
+            losses.append(accelerator.gather(loss.detach()).mean())
+    model.train()
+    if len(losses) == 0:
+        return float("inf")
+    return torch.stack(losses).mean().item()
+
+
+def main():
+    set_seed(42)
+
+    project_config = ProjectConfiguration(project_dir=str(OUT_DIR), logging_dir=str(OUT_DIR/"tb"))
+    accelerator = Accelerator(
+        gradient_accumulation_steps=ACCUM,
+        mixed_precision="bf16" if torch.cuda.is_available() else "no",
+        log_with="tensorboard",
+        project_config=project_config,
     )
-    return OUT_DIR
 
-train_ds = train_raw.map(tokenize_fn, remove_columns=train_raw.column_names)
-val_ds = val_raw.map(tokenize_fn, remove_columns=val_raw.column_names)
+    # Tokenizer / model
+    tokenizer, model = build_tokenizer_and_model()
 
-# Dynamic padding & label shifting handled by the collator
-collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    # Data
+    train_raw, val_raw = load_json_ds()
+    tokenize_fn = make_tokenize_fn(tokenizer)
+    train_ds = train_raw.map(tokenize_fn, remove_columns=train_raw.column_names)
+    val_ds   = val_raw.map(tokenize_fn,   remove_columns=val_raw.column_names)
 
-# Training args
-args = TrainingArguments(
-    output_dir=OUT_DIR,
-    per_device_train_batch_size=BATCH_SIZE,
-    per_device_eval_batch_size=EVAL_BS,
-    gradient_accumulation_steps=ACCUM, # Accumulate 8 mini-batches of 4 to simulate size of 32
-    group_by_length=True,
-    num_train_epochs=EPOCHS,
-    learning_rate=LR,
-    lr_scheduler_type="cosine",
-    logging_steps=LOG_STEPS,
-    bf16=torch.cuda.is_available(),
-    gradient_checkpointing=True,
-    report_to="tensorboard",
-    logging_dir=str(OUT_DIR / "tb")
-)
+    collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collator, pin_memory=True)
+    val_dl   = DataLoader(val_ds,   batch_size=EVAL_BS,   shuffle=False, collate_fn=collator, pin_memory=True)
 
-trainer = Trainer(
-    model=model,
-    args=args,
-    train_dataset=train_ds,
-    eval_dataset=val_ds,
-    data_collator=collator,
-    tokenizer=tokenizer,
-)
+    # Optimizer + scheduler
+    optim = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=LR)
+    num_update_steps_per_epoch = math.ceil(len(train_dl) / ACCUM)
+    t_total = num_update_steps_per_epoch * EPOCHS
+    lr_sched = CosineAnnealingLR(optim, T_max=t_total)
 
-# Begin training loop
-trainer.train()
+    # Prepare for DDP
+    model, optim, train_dl, val_dl, lr_sched = accelerator.prepare(
+        model, optim, train_dl, val_dl, lr_sched
+    )
 
-# Save PEFT adapter only in output_dir
-trainer.save_model()
+    best_val = float("inf")
+    global_step = 0
+    t0 = time.time()
+
+    for epoch in range(EPOCHS):
+        model.train()
+        for step, batch in enumerate(train_dl):
+            with accelerator.accumulate(model):
+                outputs = model(**batch)
+                loss = outputs.loss
+                accelerator.backward(loss)
+                optim.step()
+                lr_sched.step()
+                optim.zero_grad()
+                global_step += 1
+
+                if accelerator.is_main_process and (global_step % LOG_STEPS == 0):
+                    accelerator.log({"train/loss": loss.item(), "train/step": global_step}, step=global_step)
+        
+        # Eval at epoch end
+        val_loss = evaluate(model, val_dl, accelerator)
+        if accelerator.is_main_process:
+            accelerator.log({"eval/loss": val_loss, "epoch": epoch + 1}, step=global_step)
+            # Save best
+            if val_loss < best_val:
+                best_val = val_loss
+                save_dir = OUT_DIR / "best"
+                save_dir.mkdir(parents=True, exist_ok=True)
+                # save PEFT adapter; unwrap to save from the real module
+                accelerator.unwrap_model(model).save_pretrained(save_dir)
+                tokenizer.save_pretrained(save_dir)
+
+    # Final save
+    if accelerator.is_main_process:
+        final_dir = OUT_DIR / "final"
+        final_dir.mkdir(parents=True, exist_ok=True)
+        accelerator.unwrap_model(model).save_pretrained(final_dir)
+        tokenizer.save_pretrained(final_dir)
+        with open(OUT_DIR / "train_meta.json", "w", encoding="utf-8") as f:
+            json.dump({
+                "model_name": MODEL_NAME,
+                "use_qlora": USE_QLORA,
+                "epochs": EPOCHS,
+                "lr": LR,
+                "accum": ACCUM,
+                "batch_size": BATCH_SIZE,
+                "updates_per_epoch": num_update_steps_per_epoch,
+                "total_updates": t_total,
+                "minutes": (time.time() - t0) / 60.0,
+                "best_val_loss": best_val,
+            }, f, indent=2)
+
+
+if __name__ == "__main__":
+    main()
