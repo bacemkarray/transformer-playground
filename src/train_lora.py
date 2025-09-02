@@ -6,10 +6,10 @@ import os, json
 from pathlib import Path
 
 
-out = Path("adapters") / os.environ["out"]
-model_name = os.environ.get("model_name", "mistralai/Mistral-7B-Instruct-v0.3")
-use_qlora = os.environ.get("use_qlora", "false") == "true" # Leave False for bf16 LoRA
-max_len = int(os.environ.get("max_len", 2048))
+out = Path("adapters") / os.environ["OUT"]
+model_name = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
+use_qlora = os.environ.get("USE_QLORA", "false") == "true" # Leave False for bf16 LoRA
+max_len = int(os.environ.get("MAX_LEN", 2048))
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -52,8 +52,8 @@ model.enable_input_require_grads()
 model = get_peft_model(model, peft_config) #creates a peft model
 
 
-train_path = Path(os.environ.get("train_path", "data/train.jsonl"))
-val_path = Path(os.environ.get("val_path", "data/val.jsonl"))
+train_path = Path(os.environ.get("TRAIN_PATH", "data/train.jsonl"))
+val_path = Path(os.environ.get("VAL_PATH", "data/val.jsonl"))
 
 raw = load_dataset(
     "json",
