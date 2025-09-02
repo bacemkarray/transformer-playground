@@ -171,14 +171,6 @@ def main():
         val_loss = evaluate(model, val_dl, accelerator)
         if accelerator.is_main_process:
             accelerator.log({"eval/loss": val_loss, "epoch": epoch + 1}, step=global_step)
-            # Save best
-            if val_loss < best_val:
-                best_val = val_loss
-                save_dir = OUT_DIR / "best"
-                save_dir.mkdir(parents=True, exist_ok=True)
-                # save PEFT adapter; unwrap to save from the real module
-                accelerator.unwrap_model(model).save_pretrained(save_dir)
-                tokenizer.save_pretrained(save_dir)
 
     # Final save
     if accelerator.is_main_process:
