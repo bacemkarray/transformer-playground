@@ -47,29 +47,30 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16,
 )
 
+def build_tokenizer_and_model():
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
+    if USE_QLORA:
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            quantization_config=bnb_config, 
+            device_map=None,
+        )
+        model = prepare_model_for_kbit_training(model)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            torch_dtype=torch.bfloat16,
+            device_map=None,
+        )
+                                                                            
+    model.config.use_cache = False
+    model.enable_input_require_grads()
+    model = get_peft_model(model, peft_config) #creates a peft model
 
-if USE_QLORA:
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        quantization_config=bnb_config, 
-        device_map="auto",
-    )
-    model = prepare_model_for_kbit_training(model)
-else:
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
-                                                                        
-
-model.config.use_cache = False
-model.enable_input_require_grads()
-model = get_peft_model(model, peft_config) #creates a peft model
+    return model, tokenizer
 
 
 raw = load_dataset(
