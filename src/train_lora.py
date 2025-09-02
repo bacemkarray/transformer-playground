@@ -1,15 +1,35 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, Trainer, TrainingArguments, BitsAndBytesConfig
-from peft import LoraModel, LoraConfig, TaskType, prepare_model_for_kbit_training, get_peft_model
-import torch
-from datasets import load_dataset
 import os, json
 from pathlib import Path
 
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, BitsAndBytesConfig, get_constant_schedule_with_warmup
+from peft import LoraConfig, TaskType, prepare_model_for_kbit_training, get_peft_model
 
-out = Path("adapters") / os.environ["OUT"]
-model_name = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
-use_qlora = os.environ.get("USE_QLORA", "false") == "true" # Leave False for bf16 LoRA
-max_len = int(os.environ.get("MAX_LEN", 2048))
+from accelerate import Accelerator
+from accelerate.logging import get_logger
+from accelerate.utils import ProjectConfiguration, set_seed
+
+import torch
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+
+
+
+
+OUT_DIR = Path("adapters") / os.environ["OUT_DIR"]
+MODEL_NAME = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
+USE_QLORA = os.environ.get("USE_QLORA", "false") == "true" # Leave False for bf16 LoRA
+MAX_LEN = int(os.environ.get("MAX_LEN", 2048))
+
+TRAIN_PATH = Path(os.environ.get("TRAIN_PATH", "data/train.jsonl"))
+VAL_PATH = Path(os.environ.get("VAL_PATH", "data/val.jsonl"))
+
+BATCH_SIZE = int(os.environ.get("per_device_batch_size", "4"))
+EVAL_BS = int(os.environ.get("per_device_eval_batch_size", "4"))
+ACCUM = int(os.environ.get("gradient_accumulation_steps", "8"))
+EPOCHS = int(os.environ.get("num_train_epochs", "2"))
+LR = float(os.environ.get("learning_rate", "2e-4"))
+LOG_STEPS  = int(os.environ.get("logging_steps", "200"))
 
 peft_config = LoraConfig(
     task_type=TaskType.CAUSAL_LM,
@@ -28,20 +48,20 @@ bnb_config = BitsAndBytesConfig(
 )
 
 
-tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-if use_qlora:
+if USE_QLORA:
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        MODEL_NAME,
         quantization_config=bnb_config, 
         device_map="auto",
     )
     model = prepare_model_for_kbit_training(model)
 else:
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        MODEL_NAME,
         torch_dtype=torch.bfloat16,
         device_map="auto",
     )
@@ -52,14 +72,11 @@ model.enable_input_require_grads()
 model = get_peft_model(model, peft_config) #creates a peft model
 
 
-train_path = Path(os.environ.get("TRAIN_PATH", "data/train.jsonl"))
-val_path = Path(os.environ.get("VAL_PATH", "data/val.jsonl"))
-
 raw = load_dataset(
     "json",
     data_files={
-        "train": str(train_path),
-        "validation": str(val_path),
+        "train": str(TRAIN_PATH),
+        "validation": str(VAL_PATH),
     },
 )
 
@@ -73,13 +90,13 @@ def format_example(ex):
 
 def tokenize_fn(ex):
     text = format_example(ex)
-    out = tokenizer(
+    OUT_DIR = tokenizer(
         text,
-        max_length=max_len,
+        max_length=MAX_LEN,
         truncation=True,
         padding=False, # pack later via collator
     )
-    return out
+    return OUT_DIR
 
 train_ds = train_raw.map(tokenize_fn, remove_columns=train_raw.column_names)
 val_ds = val_raw.map(tokenize_fn, remove_columns=val_raw.column_names)
@@ -89,19 +106,19 @@ collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
 # Training args
 args = TrainingArguments(
-    output_dir=out,
-    per_device_train_batch_size=4,
-    per_device_eval_batch_size=4,
-    gradient_accumulation_steps=8, # Accumulate 8 mini-batches of 4 to simulate size of 32
+    output_dir=OUT_DIR,
+    per_device_train_batch_size=BATCH_SIZE,
+    per_device_eval_batch_size=EVAL_BS,
+    gradient_accumulation_steps=ACCUM, # Accumulate 8 mini-batches of 4 to simulate size of 32
     group_by_length=True,
-    num_train_epochs=2,
-    learning_rate=2e-4,
+    num_train_epochs=EPOCHS,
+    learning_rate=LR,
     lr_scheduler_type="cosine",
-    logging_steps=200,
+    logging_steps=LOG_STEPS,
     bf16=torch.cuda.is_available(),
     gradient_checkpointing=True,
     report_to="tensorboard",
-    logging_dir=str(out / "tb")
+    logging_dir=str(OUT_DIR / "tb")
 )
 
 trainer = Trainer(
