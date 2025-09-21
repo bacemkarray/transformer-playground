@@ -36,20 +36,24 @@ if use_qlora:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config, 
-        device_map="none",
     )
     model = prepare_model_for_kbit_training(model)
 else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
-        device_map="none",
     )
                                                                         
 
-model.config.use_cache = False
 model.enable_input_require_grads()
 model = get_peft_model(model, peft_config) #creates a peft model
+model.config.use_cache = False
+try:
+    # require HF Transformers >= 4.36-ish
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+except TypeError:
+    # older versions don't have kwargs; still enable (will be re-entrant though)
+    model.gradient_checkpointing_enable()
 
 
 train_path = Path(os.environ.get("train_path", "data/train.jsonl"))
@@ -100,6 +104,8 @@ args = TrainingArguments(
     logging_steps=200,
     bf16=torch.cuda.is_available(),
     gradient_checkpointing=True,
+    gradient_checkpointing_kwargs={"use_reentrant": False},
+    ddp_find_unused_parameters=False,
     report_to="tensorboard",
     logging_dir=str(out / "tb")
 )
