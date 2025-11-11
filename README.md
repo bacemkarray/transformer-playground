@@ -31,7 +31,7 @@ This project benchmarks parameter-efficient fine-tuning strategies and distribut
 
 ---
 
-## ⚙️ Environment
+## Environment
 
 - Python 3.10+  
 - PyTorch 2.1+  
