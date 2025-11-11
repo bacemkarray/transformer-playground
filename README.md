@@ -1,11 +1,11 @@
-# Summarization Fine-Tuning (Transformer Playground)
+# LLM Fine-tuning for News Article Summarization 
 
 Fine-tuned **Mistral-7B-Instruct-v0.3** on the **XSum summarization dataset** using **LoRA** and **QLoRA** adapters.  
 This project benchmarks parameter-efficient fine-tuning strategies and distributed training performance using **Hugging Face Accelerate**.
 
 ---
 
-## 🧩 Overview
+## Overview
 
 | Component | Description |
 |------------|-------------|
@@ -19,38 +19,7 @@ This project benchmarks parameter-efficient fine-tuning strategies and distribut
 
 ---
 
-## 🚀 Quickstart
-
-### 1. Prepare dataset
-```bash
-python prepare_xsum.py
-```
-
-### 2. Fine-tune with LoRA
-```bash
-OUT_DIR=lora_run \
-MODEL_NAME=mistralai/Mistral-7B-Instruct-v0.3 \
-python train_lora.py
-```
-
-### 3. Generate predictions
-```bash
-MODEL_NAME=mistralai/Mistral-7B-Instruct-v0.3 \
-RUN_NAME=lora \
-ADAPTER_PATH=adapters/lora_run/final \
-python generate.py
-```
-
-### 4. Evaluate ROUGE-L
-```bash
-PRED=runs/lora/predictions.jsonl \
-OUT=runs/lora/rouge.json \
-python eval_rouge.py
-```
-
----
-
-## 📊 Results
+## Results
 
 | Model | Params (Trainable) | ROUGE-L ↑ | Wall-Clock ↓ |
 |--------|--------------------|------------|---------------|
@@ -64,34 +33,20 @@ python eval_rouge.py
 
 ## ⚙️ Environment
 
-- Python ≥ 3.10  
-- PyTorch ≥ 2.1  
+- Python 3.10+  
+- PyTorch 2.1+  
 - `transformers`, `accelerate`, `peft`, `evaluate`, `datasets`, `bitsandbytes`, `tqdm`
 
 ---
 
-## 🧭 Notes
+## Notes
 
-- Training uses **Hugging Face Accelerate** for distributed data parallelism.  
 - Fine-tuning implemented with **PEFT**’s LoRA adapters (`q_proj`, `k_proj`, `v_proj`, `o_proj`).  
 - Evaluation uses **ROUGE-L** with stemming for fair comparison.  
 - Designed for reproducibility — deterministic seeds and fixed generation parameters.  
 
 ---
 
-## 📁 Example Outputs
-
-```json
-{
-  "id": "test-102",
-  "reference": "UK inflation rate drops to 6.7% in September.",
-  "prediction": "UK inflation falls to 6.7% as food prices ease."
-}
-```
-
----
-
-## 📜 License
 
 MIT License.  
 Models and datasets follow their respective upstream licenses.
