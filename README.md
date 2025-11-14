@@ -8,13 +8,13 @@ The focus is on how much quality a 7B model can recover by training **<1%** of i
 ## 1. Purpose
 
 Large language models are expensive to fully fine‑tune.  
-This benchmark explores how far you can push **selective adaptation**—freezing the Mistral‑7B base model while training only lightweight adapter layers.
+This benchmark tests how much performance you can recover by freezing the 7B base model and only training low-rank adapter layers.
 
 The goals:
 
 - Measure the quality gains achievable with LoRA and QLoRA under heavy parameter freezing.  
 - Compare adapter methods directly on a strict task (BBC XSum summarization).  
-- Quantify training efficiency improvements, including multi‑GPU scaling via Hugging Face Accelerate.
+- Quantify training efficiency improvements, including multi‑GPU scaling.
 
 ---
 
