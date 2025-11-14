@@ -2,6 +2,7 @@
 
 This project benchmarks **parameter‑efficient fine‑tuning** strategies on a real summarization task.  
 The focus is on how much quality a 7B model can recover by training a very small fraction of its weights, and how quantized adapters (QLoRA) compare to standard LoRA in both quality and efficiency.
+The dataset used is the BBC XSum w
 
 ---
 
@@ -18,22 +19,50 @@ The goals:
 
 ---
 
-## 2. Why Adapters?
+## 2 Dataset (XSum)
 
-LoRA and QLoRA replace full‑model fine‑tuning with a small, trainable low‑rank decomposition injected into key transformer projections.
+This benchmark uses the **BBC XSum** dataset, a single-sentence abstractive summarization dataset with ~226k examples.  
+For practical training time and consistent comparisons across runs, a fixed subset was used:
 
-Key advantages:
+| Split | Original Size | Subset Used | Notes |
+|-------|--------------|-------------|-------|
+| **Train** | ~204,000 | **50,000** | Large enough to expose fine-tuning dynamics without full-dataset cost |
+| **Validation** | ~11,334 | **2,000** | Faster evaluation at epoch boundaries |
+| **Test** | ~11,334 | **11,334** | Full test set for final ROUGE-L |
 
-- **Massive parameter reduction** - train <1% of a 7B model.  
-- **Lower VRAM requirements** – frozen base weights and 4-bit quantization (QLoRA) reduce memory footprint.
-- **Reduced optimization overhead** – only the adapter weights receive gradients or optimizer updates.
-- **No degradation in downstream task quality** for many summarization workloads.
+Each sample is formatted into an instruction-style prompt:
 
-This makes adapters ideal for studying *how much performance you can recover with minimal compute*.
+- **Input:** full BBC news article  
+- **Target:** XSum reference summary  
+- **Prompt:** “Summarize the following news article into one concise sentence…”
+
+This subset preserves the difficulty of the task while keeping compute reasonable across LoRA and QLoRA training runs.
+
+
+## 3. Why Adapters?
+
+Full fine-tuning of a 7B model is expensive: it requires updating billions of weights, storing full-precision optimizer states, and pushing large gradients across devices.  
+Adapters avoid this entirely by keeping the backbone frozen and learning only a lightweight set of parameters.
+
+This approach works well because:
+
+- **It shifts the problem from "retrain the whole model" to "nudge it in the right direction."**  
+  Most of the pretrained knowledge remains intact; the adapter simply steers the model toward the target task.
+
+- **It drastically reduces the amount of data and compute needed.**  
+  Updating a small parameter slice converges quickly, even on a fraction of the original dataset.
+
+- **It removes the instability associated with full-model updates.**  
+  Freezing the base prevents catastrophic forgetting and makes optimization smoother.
+
+- **It is flexible across hardware.**  
+  LoRA fits comfortably on standard GPUs, and QLoRA pushes the footprint down even further by quantizing the frozen backbone.
+
+In short, adapters let you specialize a large model efficiently, without touching the bulk of its pretrained parameters.
 
 ---
 
-## 3. Benchmark Axes
+## 4. Benchmark Axes
 
 This project evaluates two core dimensions:
 
@@ -53,7 +82,7 @@ Together, these measurements show how adapter type and GPU configuration affect 
 
 ---
 
-## 4. Pipeline Overview
+## 5. Pipeline Overview
 
 High‑level workflow:
 
@@ -79,7 +108,7 @@ High‑level workflow:
 
 ---
 
-## 5. Results
+## 6. Results
 
 ### **Model Quality (ROUGE‑L)**  
 
@@ -112,7 +141,7 @@ QLoRA reduces VRAM usage by roughly **33%**, allowing the same 7B model to fine-
 
 ---
 
-## 6. Methodological Choices
+## 7. Methodological Choices
 
 Some key decisions that define this benchmark:
 
@@ -130,10 +159,10 @@ Some key decisions that define this benchmark:
 
 ---
 
-## 7. Insights
+## 8. Insights
 
 - LoRA delivers the highest task quality with minimal parameter updates.  
 - QLoRA preserves nearly identical performance to LoRA’s, despite 4‑bit quantization. This comes at the cost of increased training time.
-- Distributed training significantly reduces end‑to‑end training time.  
+- Distributed training significantly reduces end‑to‑end training time. Since 
 - Summarization tasks benefit heavily from adapting attention projections.  
 - Minimizing padding by sorting batches by length improves throughput in both training and inference.
