@@ -24,9 +24,9 @@ LoRA and QLoRA replace full‑model fine‑tuning with a small, trainable low‑
 
 Key advantages:
 
-- **Massive parameter reduction** — train <1% of a 7B model.  
-- **Lower VRAM requirements** — especially with QLoRA’s 4‑bit NF4 base weights.  
-- **Faster training** — smaller gradient updates, less communication overhead.  
+- **Massive parameter reduction** - train <1% of a 7B model.  
+- **Lower VRAM requirements** - especially with QLoRA’s 4‑bit NF4 base weights.  
+- **Faster training** - smaller gradient updates, less communication overhead.  
 - **No degradation in downstream task quality** for many summarization workloads.
 
 This makes adapters ideal for studying *how much performance you can recover with minimal compute*.
