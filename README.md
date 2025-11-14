@@ -1,14 +1,14 @@
 # LLM Fine‑Tuning Benchmark: LoRA vs QLoRA on XSum
 
 This project benchmarks **parameter‑efficient fine‑tuning** strategies on a real summarization task.  
-The focus is on how much quality a 7B model can recover by training **<1%** of its weights, and how quantized adapters (QLoRA) compare to standard LoRA in both quality and efficiency.
+The focus is on how much quality a 7B model can recover by training a very small fraction of its weights, and how quantized adapters (QLoRA) compare to standard LoRA in both quality and efficiency.
 
 ---
 
 ## 1. Purpose
 
 Large language models are expensive to fully fine‑tune.  
-This benchmark tests how much performance you can recover by freezing the 7B base model and only training low-rank adapter layers.
+This benchmark tests how much performance you can recover by freezing the base model and only training low-rank adapter layers.
 
 The goals:
 
@@ -133,7 +133,7 @@ Some key decisions that define this benchmark:
 ## 7. Insights
 
 - LoRA delivers the highest task quality with minimal parameter updates.  
-- QLoRA preserves most of LoRA’s performance despite 4‑bit quantization.  
+- QLoRA preserves nearly identical performance to LoRA’s, despite 4‑bit quantization. This comes at the cost of increased training time, however.  
 - Distributed training significantly reduces end‑to‑end training time.  
-- Summarization tasks benefit heavily from adapting attention projections, even when almost the entire model is frozen.  
-- Padding minimization (sorted batches) improves throughput in both training and inference.
+- Summarization tasks benefit heavily from adapting attention projections.  
+- Minimizing padding by sorting batches by length improves throughput in both training and inference.
