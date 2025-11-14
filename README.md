@@ -37,14 +37,14 @@ This makes adapters ideal for studying *how much performance you can recover wit
 
 This project evaluates two core dimensions:
 
-### **Axis A — Parameter‑Efficiency**
+### **Axis A - Parameter‑Efficiency**
 How much ROUGE‑L improvement can we extract by fine‑tuning:
 - **LoRA adapters** (bf16 base weights)  
 - **QLoRA adapters** (4‑bit NF4 base weights)  
 
 while freezing ~99% of model parameters?
 
-### **Axis B — Training Efficiency**
+### **Axis B - Training Efficiency**
 How much wall‑clock speed do we gain from:
 - **Single‑GPU vs multi‑GPU DDP**  
 - **Adapter weights vs full‑precision training**  
