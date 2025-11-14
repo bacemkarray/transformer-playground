@@ -86,7 +86,7 @@ High‑level workflow:
 
 | Model | Trainable Params | ROUGE‑L | Notes |
 |-------|------------------|---------|-------|
-| **Mistral‑7B Base** | ~7.3 Billion (frozen at inference) | `0.1907` | Baseline |
+| **Mistral‑7B Base** | ~7.3 Billion | `0.1907` | Baseline |
 | **LoRA Fine‑Tuned** | 6815744 | `0.2289` | Strongest task performance |
 | **QLoRA Fine‑Tuned** | 6815744 | `0.2283` | Nearly matches LoRA despite 4‑bit base |
 
