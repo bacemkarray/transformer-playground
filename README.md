@@ -133,7 +133,7 @@ Some key decisions that define this benchmark:
 ## 7. Insights
 
 - LoRA delivers the highest task quality with minimal parameter updates.  
-- QLoRA preserves nearly identical performance to LoRA’s, despite 4‑bit quantization. This comes at the cost of increased training time, however.  
+- QLoRA preserves nearly identical performance to LoRA’s, despite 4‑bit quantization. This comes at the cost of increased training time.
 - Distributed training significantly reduces end‑to‑end training time.  
 - Summarization tasks benefit heavily from adapting attention projections.  
 - Minimizing padding by sorting batches by length improves throughput in both training and inference.
