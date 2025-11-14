@@ -106,7 +106,7 @@ High‑level workflow:
 | Configuration       | VRAM Usage     | Reduction |
 |---------------------|----------------|-----------|
 | **LoRA (bf16)**     | `21,576 MiB`   | —         |
-| **QLoRA (4-bit NF4)`| `14,526 MiB`   | ~33%  |
+| **QLoRA (4-bit NF4)**| `14,526 MiB`   | ~33%  |
 
 QLoRA reduces VRAM usage by roughly **33%**, allowing the same 7B model to fine-tune comfortably on smaller GPUs, at the cost of longer training times.
 
