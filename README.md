@@ -25,8 +25,8 @@ LoRA and QLoRA replace full‑model fine‑tuning with a small, trainable low‑
 Key advantages:
 
 - **Massive parameter reduction** - train <1% of a 7B model.  
-- **Lower VRAM requirements** - especially with QLoRA’s 4‑bit NF4 base weights.  
-- **Faster training** - smaller gradient updates, less communication overhead.  
+- **Lower VRAM requirements** – frozen base weights and 4-bit quantization (QLoRA) reduce memory footprint.
+- **Reduced optimization overhead** – only the adapter weights receive gradients or optimizer updates.
 - **No degradation in downstream task quality** for many summarization workloads.
 
 This makes adapters ideal for studying *how much performance you can recover with minimal compute*.
@@ -37,20 +37,19 @@ This makes adapters ideal for studying *how much performance you can recover wit
 
 This project evaluates two core dimensions:
 
-### **Axis A - Parameter‑Efficiency**
-How much ROUGE‑L improvement can we extract by fine‑tuning:
-- **LoRA adapters** (bf16 base weights)  
-- **QLoRA adapters** (4‑bit NF4 base weights)  
+### **Axis A – Parameter-Efficiency**
+How much ROUGE-L improvement can be recovered by fine-tuning:
+- **LoRA adapters** (bf16 base)
+- **QLoRA adapters** (4-bit NF4 base)
 
-while freezing ~99% of model parameters?
+while freezing ~99% of the model parameters.
 
-### **Axis B - Training Efficiency**
-How much wall‑clock speed do we gain from:
-- **Single‑GPU vs multi‑GPU DDP**  
-- **Adapter weights vs full‑precision training**  
-- **Sorted batch inference optimizations**
+### **Axis B – Training Efficiency**
+How training speed and behavior differ between:
+- **Single-GPU vs multi-GPU DDP**
+- **LoRA vs QLoRA training throughput**
 
-Results highlight the scaling behavior of a real 7B model on commodity multi‑GPU hardware.
+Together, these measurements show how adapter type and GPU configuration affect both throughput and final task quality.
 
 ---
 
@@ -70,10 +69,10 @@ High‑level workflow:
 3. **Distributed Training (Accelerate)**  
    - Multi‑GPU Data Parallelism.  
    - Cosine LR schedule.  
-   - Mixed precision (bf16 / 4‑bit compute).
+   - Mixed precision (bf16 / 4BUD‑bit compute).
 
 4. **Batch‑Sorted Inference**  
-   - Sorting by input token length minimizes padding leads to higher throughput.
+   - Sorting by input token length minimizes padding and leads to higher throughput.
 
 5. **Evaluation (ROUGE‑L)**  
    - Predictions compared to reference summaries using stemmed ROUGE‑L.
@@ -84,21 +83,32 @@ High‑level workflow:
 
 ### **Model Quality (ROUGE‑L)**  
 
-| Model | Trainable Params | ROUGE‑L | Notes |
-|-------|------------------|---------|-------|
-| **Mistral‑7B Base** | ~7.3 Billion | `0.1907` | Baseline |
-| **LoRA Fine‑Tuned** | 6815744 | `0.2289` | Strongest task performance |
-| **QLoRA Fine‑Tuned** | 6815744 | `0.2283` | Nearly matches LoRA despite 4‑bit base |
+| Model | Trainable Params | ROUGE‑L |
+|-------|------------------|---------|
+| **Mistral‑7B Base** | ~7.3 Billion | `0.1907` |
+| **LoRA Fine‑Tuned** | 6,815,744 | `0.2289` |
+| **QLoRA Fine‑Tuned** | 6,815,744 | `0.2283` |
 
 ---
 
 ### **Training Efficiency**
 
-| Configuration | Wall‑Clock Time | Speedup | Notes |
-|--------------|-----------------|---------|-------|
-| **1× GPU (LoRA)** | `8:57:37` | — | Baseline |
-| **2× GPU DDP (LoRA)** | `4:20:44` | ~52% | Substantial scaling efficiency |
-| **QLoRA 1× GPU** | `11:07:59` | — | Lower VRAM usage but longer training time |
+| Configuration | Wall‑Clock Time | Speedup |
+|--------------|-----------------|---------|
+| **1× GPU (LoRA)** | `8:57:37` | — |
+| **2× GPU DDP (LoRA)** | `4:20:44` | ~52% |
+| **QLoRA 1× GPU** | `11:07:59` | — |
+
+---
+
+### **VRAM Usage (1× GPU)**
+
+| Configuration       | VRAM Usage     | Reduction |
+|---------------------|----------------|-----------|
+| **LoRA (bf16)**     | `21,576 MiB`   | —         |
+| **QLoRA (4-bit NF4)`| `14,526 MiB`   | ~33%  |
+
+QLoRA reduces VRAM usage by roughly **33%**, allowing the same 7B model to fine-tune comfortably on smaller GPUs, at the cost of longer training times.
 
 ---
 
