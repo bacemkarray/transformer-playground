@@ -86,9 +86,9 @@ High‑level workflow:
 
 | Model | Trainable Params | ROUGE‑L | Notes |
 |-------|------------------|---------|-------|
-| **Mistral‑7B Base** | ~7.3 Billion (frozen at inference) | `<0.1907>` | Baseline |
-| **LoRA Fine‑Tuned** | 6815744 | `<0.2289>` | Strongest task performance |
-| **QLoRA Fine‑Tuned** | 6815744 | `<0.2283>` | Nearly matches LoRA despite 4‑bit base |
+| **Mistral‑7B Base** | ~7.3 Billion (frozen at inference) | `0.1907` | Baseline |
+| **LoRA Fine‑Tuned** | 6815744 | `0.2289` | Strongest task performance |
+| **QLoRA Fine‑Tuned** | 6815744 | `0.2283` | Nearly matches LoRA despite 4‑bit base |
 
 ---
 
@@ -96,9 +96,9 @@ High‑level workflow:
 
 | Configuration | Wall‑Clock Time | Speedup | Notes |
 |--------------|-----------------|---------|-------|
-| **1× GPU (LoRA)** | `<8:57:37>` | — | Baseline |
-| **2× GPU DDP (LoRA)** | `<4:20:44>` | ~52% | Substantial scaling efficiency |
-| **QLoRA 1× GPU** | `<11:07:59>` | — | Lower VRAM footprint but longer training due |
+| **1× GPU (LoRA)** | `8:57:37` | — | Baseline |
+| **2× GPU DDP (LoRA)** | `4:20:44` | ~52% | Substantial scaling efficiency |
+| **QLoRA 1× GPU** | `11:07:59` | — | Lower VRAM usage but longer training time |
 
 ---
 
@@ -127,10 +127,3 @@ Some key decisions that define this benchmark:
 - Distributed training significantly reduces end‑to‑end training time.  
 - Summarization tasks benefit heavily from adapting attention projections, even when almost the entire model is frozen.  
 - Padding minimization (sorted batches) improves throughput in both training and inference.
-
----
-
-## License
-
-MIT License.  
-Datasets and upstream models follow their respective original licenses.
