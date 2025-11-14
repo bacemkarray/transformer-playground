@@ -36,7 +36,7 @@ Each sample is formatted into an instruction-style prompt:
 - **Target:** XSum reference summary  
 - **Prompt:** “Summarize the following news article into one concise sentence…”
 
-This subset preserves the difficulty of the task while keeping compute reasonable across LoRA and QLoRA training runs.
+This subset preserves the difficulty of the task while keeping training time reasonable across LoRA and QLoRA training runs.
 
 
 ## 3. Why Adapters?
